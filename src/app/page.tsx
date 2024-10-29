@@ -1,15 +1,30 @@
 "use client"
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { DocumentData, } from "@/app/types"
 
 // za osnovne vrednosti sem uporabil api in pdf iz pdf-lib za testiranje
 const Test = () => {
-  const [apiUrl, setApiUrl] = useState('https://639335b5ab513e12c50722ff.mockapi.io/job');
-  const [pdfUrl, setPdfUrl] = useState('https://pdf-lib.js.org/assets/with_update_sections.pdf');
+
+  const defaultApiUrl = 'https://639335b5ab513e12c50722ff.mockapi.io/job';
+  const defaultPdfUrl = 'https://pdf-lib.js.org/assets/with_update_sections.pdf';
+
+  const [apiUrl, setApiUrl] = useState('');
+  const [pdfUrl, setPdfUrl] = useState('');
+
   // defult vrednost je false in se spremeni v true ko se zacne spreminjanje pdf datoteke
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setApiUrl(defaultApiUrl);
+      setPdfUrl(defaultPdfUrl);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // defult vrednost je false in se spremeni v true ko se zacne spreminjanje pdf datoteke
 
 
   const fetchDocument = async (url: string): Promise<DocumentData[]> => {
