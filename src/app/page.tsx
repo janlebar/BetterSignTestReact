@@ -1,101 +1,151 @@
-import Image from "next/image";
+"use client"
 
-export default function Home() {
+import React, { useState } from 'react';
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { DocumentData, } from "@/app/types"
+
+// za osnovne vrednosti sem uporabil api in pdf iz pdf-lib za testiranje
+const Test = () => {
+  const [apiUrl, setApiUrl] = useState('https://639335b5ab513e12c50722ff.mockapi.io/job');
+  const [pdfUrl, setPdfUrl] = useState('https://pdf-lib.js.org/assets/with_update_sections.pdf');
+  const [isLoading, setIsLoading] = useState(false);
+
+
+  const fetchDocument = async (url: string): Promise<DocumentData[]> => {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("Failed to fetch API data");
+    return response.json();
+  };
+
+  // barvna shema v rgb
+  const apiColourChange = (color: string) => {
+    const [r, g, b] = color.split(',').map(Number);
+    return rgb(r / 255, g / 255, b / 255);
+  };
+
+  // 
+  const modifyPdf = async () => {
+    setIsLoading(true);
+    try {
+      const apiData = await fetchDocument(apiUrl);
+      const pdfBytes = await fetch(pdfUrl).then((res) => res.arrayBuffer());
+      const pdfDoc = await PDFDocument.load(pdfBytes);
+      const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+      for (const doc of apiData) {
+        for (const field of doc.documentField) {
+          if (field.fieldType === 'COMBOBOX') {
+            const options = field.options.comboboxExtras.options;
+            const defaultOption = options[field.options.comboboxExtras.defaultOptionKey];
+            const visual = field.options.visualisation;
+            const page = pdfDoc.getPage(visual.location.page - 1);
+
+            // Racunanje pozicije glede na api 100% width/height PDF-ja.
+            const x = visual.location.x * page.getWidth();
+            const y = visual.location.y * page.getHeight();
+            const width = visual.width * page.getWidth();
+            const height = visual.height * page.getHeight();
+
+
+            const borderColor = apiColourChange(visual.borderColor);
+            const fontColor = apiColourChange(visual.fontColor);
+
+            const borderDashArray = visual.borderStyle === 'DASH'
+              ? [6]
+              : visual.borderStyle === 'DOT'
+                ? [2, 2]
+                : [];
+
+            // pdf-lib ne pdpira border-dotted
+            page.drawRectangle({
+              x,
+              y,
+              width,
+              height,
+              borderColor,
+              borderWidth: visual.borderWidth,
+              color: rgb(1, 1, 1),
+              opacity: 0.1,
+              borderDashArray,
+            });
+
+            // combox
+            page.drawText(defaultOption, {
+              x: x + visual.padding,
+              y: y + visual.padding,
+              size: visual.fontSize,
+              font,
+              color: fontColor,
+            });
+
+            //težava z simulacijo dropdowna
+            const optionKeys = Object.keys(options);
+            optionKeys.forEach((key, index) => {
+              const optionText = options[key];
+              const optionY = y - ((index + 1) * (height + visual.padding));
+
+              page.drawRectangle({
+                x,
+                y: optionY,
+                width,
+                height,
+                borderColor,
+                borderWidth: visual.borderWidth,
+                color: rgb(1, 1, 1),
+                opacity: 0.1,
+              });
+
+              page.drawText(optionText, {
+                x: x + visual.padding,
+                y: optionY + visual.padding,
+                size: visual.fontSize,
+                font,
+                color: fontColor,
+              });
+            });
+          }
+        }
+      }
+
+      const modifiedPdfBytes = await pdfDoc.save();
+
+      // Shrani pdf
+      const blob = new Blob([modifiedPdfBytes], { type: 'application/pdf' });
+      const downloadLink = document.createElement('a');
+      downloadLink.href = URL.createObjectURL(blob);
+      downloadLink.download = 'modified_output.pdf';
+      downloadLink.click();
+    } catch (error) {
+      console.error("Error modifying PDF:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+    <div style={{ padding: '20px', fontFamily: 'Arial' }}>
+      <h1>PDF Modifier</h1>
+      <input
+        type="text"
+        value={apiUrl}
+        onChange={(e) => setApiUrl(e.target.value)}
+        placeholder="https://639335b5ab513e12c50722ff.mockapi.io/job"
+        style={{ width: '300px', marginRight: '10px', padding: '5px' }}
+      />
+      <input
+        type="text"
+        value={pdfUrl}
+        onChange={(e) => setPdfUrl(e.target.value)}
+        placeholder="https://pdf-lib.js.org/assets/with_update_sections.pdf"
+        style={{ width: '300px', marginRight: '10px', padding: '5px' }}
+      />
+      <button
+        className={`bg-[#f29a41] text-white py-2 px-4 rounded transition-colors duration-300 hover:bg-[rgb(34,25,16)] disabled:bg-gray-400`}
+        onClick={modifyPdf} disabled={isLoading || !apiUrl || !pdfUrl}>
+        {isLoading ? 'Modifying PDF...' : 'Modify PDF'}
+      </button>
     </div>
   );
-}
+};
+
+export default Test;
