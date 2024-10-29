@@ -8,6 +8,7 @@ import { DocumentData, } from "@/app/types"
 const Test = () => {
   const [apiUrl, setApiUrl] = useState('https://639335b5ab513e12c50722ff.mockapi.io/job');
   const [pdfUrl, setPdfUrl] = useState('https://pdf-lib.js.org/assets/with_update_sections.pdf');
+  // defult vrednost je false in se spremeni v true ko se zacne spreminjanje pdf datoteke
   const [isLoading, setIsLoading] = useState(false);
 
 
@@ -17,11 +18,12 @@ const Test = () => {
     return response.json();
   };
 
-  // barvna shema v rgb
+  // // barvna shema v rgb
   const apiColourChange = (color: string) => {
-    const [r, g, b] = color.split(',').map(Number);
-    return rgb(r / 255, g / 255, b / 255);
+    const [r, g, b] = color.split(',').map(value => parseFloat(value.trim()) / 255);
+    return rgb(r, g, b); // nove bare
   };
+
 
   // 
   const modifyPdf = async () => {
@@ -30,9 +32,10 @@ const Test = () => {
       const apiData = await fetchDocument(apiUrl);
       const pdfBytes = await fetch(pdfUrl).then((res) => res.arrayBuffer());
       const pdfDoc = await PDFDocument.load(pdfBytes);
-      const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      const form = pdfDoc.getForm();
 
       for (const doc of apiData) {
+        console.log('API Data:', apiData);
         for (const field of doc.documentField) {
           if (field.fieldType === 'COMBOBOX') {
             const options = field.options.comboboxExtras.options;
@@ -40,23 +43,28 @@ const Test = () => {
             const visual = field.options.visualisation;
             const page = pdfDoc.getPage(visual.location.page - 1);
 
-            // Racunanje pozicije glede na api 100% width/height PDF-ja.
+            // vsak COMBOX ima svoj 
+            const dropdownFieldName = `dropdown-${field.id || Math.random().toString(36).substring(2, 15)}`;
+
+            // pozicija COMBOXOV
             const x = visual.location.x * page.getWidth();
             const y = visual.location.y * page.getHeight();
             const width = visual.width * page.getWidth();
             const height = visual.height * page.getHeight();
 
 
+            // dropdon dodamo na pdf
+            const dropdownField = form.createDropdown(dropdownFieldName);
+            dropdownField.addOptions(Object.values(options));
+            dropdownField.select(defaultOption);
+            dropdownField.addToPage(page, { x, y, width, height });
+
+
             const borderColor = apiColourChange(visual.borderColor);
-            const fontColor = apiColourChange(visual.fontColor);
+            //pdf-lib v osnovi ne podpira "borderStyle":"DASH"
+            const borderDashArray = visual.borderStyle === 'DASH' ? [6] : visual.borderStyle === 'DOT' ? [2, 2] : [];
 
-            const borderDashArray = visual.borderStyle === 'DASH'
-              ? [6]
-              : visual.borderStyle === 'DOT'
-                ? [2, 2]
-                : [];
-
-            // pdf-lib ne pdpira border-dotted
+            // iyris okvirja
             page.drawRectangle({
               x,
               y,
@@ -68,48 +76,13 @@ const Test = () => {
               opacity: 0.1,
               borderDashArray,
             });
-
-            // combox
-            page.drawText(defaultOption, {
-              x: x + visual.padding,
-              y: y + visual.padding,
-              size: visual.fontSize,
-              font,
-              color: fontColor,
-            });
-
-            //težava z simulacijo dropdowna
-            const optionKeys = Object.keys(options);
-            optionKeys.forEach((key, index) => {
-              const optionText = options[key];
-              const optionY = y - ((index + 1) * (height + visual.padding));
-
-              page.drawRectangle({
-                x,
-                y: optionY,
-                width,
-                height,
-                borderColor,
-                borderWidth: visual.borderWidth,
-                color: rgb(1, 1, 1),
-                opacity: 0.1,
-              });
-
-              page.drawText(optionText, {
-                x: x + visual.padding,
-                y: optionY + visual.padding,
-                size: visual.fontSize,
-                font,
-                color: fontColor,
-              });
-            });
           }
         }
       }
 
       const modifiedPdfBytes = await pdfDoc.save();
 
-      // Shrani pdf
+      // Save PDF
       const blob = new Blob([modifiedPdfBytes], { type: 'application/pdf' });
       const downloadLink = document.createElement('a');
       downloadLink.href = URL.createObjectURL(blob);
@@ -122,6 +95,7 @@ const Test = () => {
     }
   };
 
+
   return (
     <div style={{ padding: '20px', fontFamily: 'Arial' }}>
       <h1>PDF Modifier</h1>
@@ -129,14 +103,14 @@ const Test = () => {
         type="text"
         value={apiUrl}
         onChange={(e) => setApiUrl(e.target.value)}
-        placeholder="https://639335b5ab513e12c50722ff.mockapi.io/job"
+        placeholder="api"
         style={{ width: '300px', marginRight: '10px', padding: '5px' }}
       />
       <input
         type="text"
         value={pdfUrl}
         onChange={(e) => setPdfUrl(e.target.value)}
-        placeholder="https://pdf-lib.js.org/assets/with_update_sections.pdf"
+        placeholder="pdf"
         style={{ width: '300px', marginRight: '10px', padding: '5px' }}
       />
       <button
