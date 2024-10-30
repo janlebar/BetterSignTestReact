@@ -4,27 +4,13 @@ import React, { useState, useEffect } from 'react';
 import { PDFDocument, rgb } from 'pdf-lib';
 import { DocumentData, } from "@/app/types"
 
-// za osnovne vrednosti sem uporabil api in pdf iz pdf-lib za testiranje
-const Test = () => {
 
-  const defaultApiUrl = 'https://639335b5ab513e12c50722ff.mockapi.io/job';
-  const defaultPdfUrl = 'https://pdf-lib.js.org/assets/with_update_sections.pdf';
+const MainPage = () => {
 
-  const [apiUrl, setApiUrl] = useState('');
-  const [pdfUrl, setPdfUrl] = useState('');
-
-  // defult vrednost je false in se spremeni v true ko se zacne spreminjanje pdf datoteke
+  // za osnovne vrednosti sem uporabil api in pdf iz pdf-lib za testiranje
+  const [apiUrl, setApiUrl] = useState('https://639335b5ab513e12c50722ff.mockapi.io/job');
+  const [pdfUrl, setPdfUrl] = useState('https://pdf-lib.js.org/assets/with_update_sections.pdf');
   const [isLoading, setIsLoading] = useState(false);
-
-  // naloyil defaut vrednosti za api url in pdf url po 1 sekundi
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setApiUrl(defaultApiUrl);
-      setPdfUrl(defaultPdfUrl);
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, []);
-
 
   const fetchDocument = async (url: string): Promise<DocumentData[]> => {
     const response = await fetch(url);
@@ -136,4 +122,4 @@ const Test = () => {
   );
 };
 
-export default Test;
+export default MainPage;
